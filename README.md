@@ -1,6 +1,6 @@
-# Porra Mundial 2026 · TIC A1
+# Porra Mundial 2026 · Abogacía General del Estado 
 
-Aplicación de porra del Mundial 2026 para el grupo TIC A1. Cada participante elige 13 selecciones al inicio del torneo y acumula puntos automáticamente según los resultados.
+Aplicación de porra del Mundial 2026 para la Abogacía General del Estado. Cada participante elige 13 selecciones al inicio del torneo y acumula puntos automáticamente según los resultados.
 
 ## Stack
 
