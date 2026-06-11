@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
-const TOURNAMENT_START = new Date('2026-06-11T16:00:00-05:00'); // 11 jun 2026 UTC-5
+const TOURNAMENT_START = new Date('2026-06-11T15:00:00-04:00'); // 11 jun 2026 15:00 ET
 
 function useCountdown(target) {
   const [diff, setDiff] = useState(() => target - Date.now());
