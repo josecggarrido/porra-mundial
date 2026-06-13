@@ -18,6 +18,8 @@ var TEAM_NAME_MAP = {
   'Venezuela': 'Venezuela', 'Peru': 'Perú', 'Uruguay': 'Uruguay',
   'Costa Rica': 'Costa Rica', 'Honduras': 'Honduras', 'Jamaica': 'Jamaica',
   'Trinidad and Tobago': 'Trinidad y Tobago',
+  'Bosnia and Herzegovina': 'Bosnia y Herzegovina',
+  'Bosnia-Herzegovina': 'Bosnia y Herzegovina',
 };
 
 var STAGE_MAP = {

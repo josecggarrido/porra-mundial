@@ -62,7 +62,15 @@ export function detectChampion(resultados) {
 }
 
 function normKey(s) {
-  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  return s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    // Treat separators "y" / "and" / "&" / "-" as equivalent so
+    // "Bosnia y Herzegovina" matches the API's "Bosnia-Herzegovina".
+    .replace(/\s*(?:&|-|\by\b|\band\b)\s*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 export function calcClasificacion(participantes, resultados) {
