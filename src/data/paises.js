@@ -57,7 +57,7 @@ export const GRUPOS = [
     elegir: 3,
     color: 'var(--c-g4)',
     paises: [
-      { n: 29, nombre: 'Bosnia y Herzegovina', iso: 'BA' },
+      { n: 29, nombre: 'Bosnia-Herzegovina', iso: 'BA' },
       { n: 30, nombre: 'Argelia',         iso: 'DZ' },
       { n: 31, nombre: 'Rep. Dem. del Congo', iso: 'CD' },
       { n: 32, nombre: 'Túnez',           iso: 'TN' },
