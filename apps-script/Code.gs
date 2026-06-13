@@ -20,6 +20,14 @@ var TEAM_NAME_MAP = {
   'Trinidad and Tobago': 'Trinidad y Tobago',
   'Bosnia and Herzegovina': 'Bosnia y Herzegovina',
   'Bosnia-Herzegovina': 'Bosnia y Herzegovina',
+  // Alias defensivos: la API puede usar estas grafías en lugar de la clave principal.
+  'Korea Republic': 'Corea del Sur', 'Korea, Republic of': 'Corea del Sur',
+  'Czechia': 'Chequia',
+  'Türkiye': 'Turquía', 'Turkiye': 'Turquía',
+  'Cape Verde': 'Cabo Verde',
+  'Congo DR': 'Rep. Dem. del Congo', 'Democratic Republic of Congo': 'Rep. Dem. del Congo',
+  'IR Iran': 'Irán',
+  'USA': 'EEUU',
 };
 
 var STAGE_MAP = {
