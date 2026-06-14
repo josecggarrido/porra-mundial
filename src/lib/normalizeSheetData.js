@@ -1,5 +1,8 @@
 const NUM_PREFIX_RE = /^\d+\s*-\s*/;
-const FLAG_RE = /[\u{1F1E0}-\u{1F1FF}]/gu;
+// Banderas a quitar de los nombres:
+//  - pares de "regional indicators" (países, p.ej. 🇧🇦)
+//  - banderas de subdivisión tipo "tag sequence" (🏴 + tag chars): Escocia, Inglaterra, Gales
+const FLAG_RE = /[\u{1F1E0}-\u{1F1FF}]|\u{1F3F4}[\u{E0020}-\u{E007F}]*/gu;
 
 function normalizeName(raw) {
   return (raw || '').replace(FLAG_RE, '').trim().replace(NUM_PREFIX_RE, '').trim();
