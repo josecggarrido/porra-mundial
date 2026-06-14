@@ -66,18 +66,52 @@ function normalizeMatchStatus(apiStatus, duration) {
   return apiStatus;
 }
 
-// Returns [homeRedCards, awayRedCards] from the bookings array
-function extractRedCards(match) {
-  if (!match.bookings || !Array.isArray(match.bookings)) return [0, 0];
-  var homeId = match.homeTeam && match.homeTeam.id;
+// Counts red cards per side from a bookings array.
+// football-data.org v4 uses `card` ("RED_CARD" / "YELLOW_RED_CARD" / "YELLOW_CARD").
+// We tolerate the older `type` field too and count anything containing "RED"
+// (direct red or second yellow).
+function countRedCards(bookings, homeId) {
+  if (!Array.isArray(bookings)) return [0, 0];
   var homeRed = 0, awayRed = 0;
-  for (var i = 0; i < match.bookings.length; i++) {
-    var b = match.bookings[i];
-    if (b.type !== 'RED_CARD' && b.type !== 'YELLOW_RED_CARD') continue;
+  for (var i = 0; i < bookings.length; i++) {
+    var b = bookings[i];
+    var card = String(b.card || b.type || '').toUpperCase();
+    if (card.indexOf('RED') === -1) continue;
     if (b.team && b.team.id === homeId) homeRed++;
     else awayRed++;
   }
   return [homeRed, awayRed];
+}
+
+// Fetches a single match's full detail. The matches LIST endpoint omits the
+// `bookings` array — only /v4/matches/{id} includes it. Returns the match
+// object (with bookings) or null on error.
+function fetchMatchDetail_(matchId, apiKey) {
+  var url = 'https://api.football-data.org/v4/matches/' + matchId;
+  try {
+    var res = UrlFetchApp.fetch(url, {
+      headers: { 'X-Auth-Token': apiKey },
+      muteHttpExceptions: true,
+    });
+    if (res.getResponseCode() !== 200) {
+      Logger.log('detail ' + matchId + ' HTTP ' + res.getResponseCode() + ': ' + res.getContentText());
+      return null;
+    }
+    return JSON.parse(res.getContentText());
+  } catch (e) {
+    Logger.log('ERROR detail ' + matchId + ': ' + e.message);
+    return null;
+  }
+}
+
+// Red cards already stored in a sheet row (cols I/J = indices 8/9), or [0,0].
+function storedRedCards_(prevRow) {
+  if (!prevRow) return [0, 0];
+  return [Number(prevRow[8]) || 0, Number(prevRow[9]) || 0];
+}
+
+function isFinishedStatus_(status) {
+  return status === 'FT' || status === 'AET' || status === 'PEN';
 }
 
 // Returns [homeGoals, awayGoals] from a match object given the normalized status
@@ -251,12 +285,36 @@ function fetchResults() {
   }
 
   var changed = false;
+  // Detail calls cost an API request each; cap per run to respect the
+  // free-tier rate limit (10 req/min). Live + newly-finished matches only.
+  var detailBudget = 8;
 
   for (var j = 0; j < matches.length; j++) {
     var m = matches[j];
     var status = normalizeMatchStatus(m.status, m.score && m.score.duration);
     var goals = extractGoals(m, status);
-    var reds = extractRedCards(m);
+    var key = String(m.id);
+    var prevRow = idToRow.hasOwnProperty(key) ? existingData[idToRow[key]] : null;
+    var prevStatus = prevRow ? String(prevRow[5]) : '';
+
+    // Red cards come from the match-detail endpoint (the list omits bookings).
+    // Fetch detail when the match is live, or the first time we see it finished;
+    // otherwise reuse the value already stored to avoid redundant API calls.
+    var reds;
+    if (status === 'LIVE' && detailBudget > 0) {
+      detailBudget--;
+      var liveDet = fetchMatchDetail_(m.id, apiKey);
+      reds = liveDet ? countRedCards(liveDet.bookings, m.homeTeam.id) : storedRedCards_(prevRow);
+    } else if (isFinishedStatus_(status) && !isFinishedStatus_(prevStatus) && detailBudget > 0) {
+      detailBudget--;
+      var finDet = fetchMatchDetail_(m.id, apiKey);
+      reds = finDet ? countRedCards(finDet.bookings, m.homeTeam.id) : storedRedCards_(prevRow);
+    } else if (status === 'LIVE' || isFinishedStatus_(status)) {
+      reds = storedRedCards_(prevRow); // over budget or already captured — keep
+    } else {
+      reds = [0, 0]; // NS / PST / etc.
+    }
+
     var row = [
       m.id,
       normalizeTeam(m.homeTeam.name),
@@ -267,7 +325,6 @@ function fetchResults() {
       m.utcDate || '',
       reds[0], reds[1],
     ];
-    var key = String(m.id);
 
     if (idToRow.hasOwnProperty(key)) {
       var rowIdx = idToRow[key];
@@ -299,6 +356,63 @@ function fetchResults() {
   } catch (e) {
     Logger.log('ERROR escribiendo en la hoja: ' + e.message);
   }
+}
+
+// Manual one-off: re-reads red cards for every finished match via the detail
+// endpoint and writes cols I/J. Run once after deploying this fix to backfill
+// matches that finished earlier, or any time a match slipped past fetchResults.
+// Throttled and capped so it stays within rate limits and the 6-min runtime.
+function backfillRedCards() {
+  var props = PropertiesService.getScriptProperties();
+  var apiKey = props.getProperty('FOOTBALL_API_KEY');
+  var spreadsheetId = props.getProperty('SPREADSHEET_ID');
+  var sheetName = props.getProperty('RESULTS_SHEET_NAME') || 'Resultados';
+
+  if (!apiKey || !spreadsheetId) {
+    Logger.log('ERROR: faltan FOOTBALL_API_KEY o SPREADSHEET_ID en Script Properties');
+    return;
+  }
+
+  var ss = SpreadsheetApp.openById(spreadsheetId);
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) { Logger.log('No existe la pestaña ' + sheetName); return; }
+
+  var data = sheet.getDataRange().getValues();
+  var idToRow = {};
+  for (var i = 0; i < data.length; i++) {
+    if (data[i][0]) idToRow[String(data[i][0])] = i;
+  }
+
+  var matches = fetchMatchesFromAPI_(apiKey);
+  if (!matches) return;
+
+  var CAP = 45;          // max detail calls this run (stay under runtime limit)
+  var processed = 0, updated = 0, remaining = 0;
+
+  for (var j = 0; j < matches.length; j++) {
+    var m = matches[j];
+    var status = normalizeMatchStatus(m.status, m.score && m.score.duration);
+    if (!isFinishedStatus_(status)) continue;
+    var key = String(m.id);
+    if (!idToRow.hasOwnProperty(key)) continue;
+
+    if (processed >= CAP) { remaining++; continue; }
+    processed++;
+
+    var det = fetchMatchDetail_(m.id, apiKey);
+    Utilities.sleep(1200); // gentle throttle vs. rate limit
+    if (!det) continue;
+
+    var reds = countRedCards(det.bookings, m.homeTeam.id);
+    var rowIdx = idToRow[key];
+    if (Number(data[rowIdx][8]) !== reds[0] || Number(data[rowIdx][9]) !== reds[1]) {
+      sheet.getRange(rowIdx + 1, 9, 1, 2).setValues([[reds[0], reds[1]]]);
+      updated++;
+    }
+  }
+
+  Logger.log('backfillRedCards: ' + processed + ' partidos revisados, ' + updated +
+    ' actualizados' + (remaining ? ', ' + remaining + ' pendientes (vuelve a ejecutar)' : ''));
 }
 
 // Shared helper — calls football-data.org and returns matches array, or null on error
