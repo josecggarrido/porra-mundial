@@ -66,6 +66,7 @@ export function detectChampion(resultados) {
 // in already-normalized form (lowercase, no accents, single spaces).
 const TEAM_SYNONYMS = {
   'cape verde': 'cabo verde',
+  'cape verde islands': 'cabo verde',
 };
 
 function normKey(s) {

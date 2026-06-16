@@ -24,7 +24,7 @@ var TEAM_NAME_MAP = {
   'Korea Republic': 'Corea del Sur', 'Korea, Republic of': 'Corea del Sur',
   'Czechia': 'Chequia',
   'Türkiye': 'Turquía', 'Turkiye': 'Turquía',
-  'Cape Verde': 'Cabo Verde',
+  'Cape Verde': 'Cabo Verde', 'Cape Verde Islands': 'Cabo Verde',
   'Congo DR': 'Rep. Dem. del Congo', 'Democratic Republic of Congo': 'Rep. Dem. del Congo',
   'IR Iran': 'Irán',
   'USA': 'EEUU',

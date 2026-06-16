@@ -8,6 +8,19 @@ function normalizeName(raw) {
   return (raw || '').replace(FLAG_RE, '').trim().replace(NUM_PREFIX_RE, '').trim();
 }
 
+// Display-name fixes for results stored under a non-canonical spelling
+// (e.g. fetched before the backend learned the Spanish name). Keeps the
+// teams shown in Equipos/Partidos consistent with the rest of the app.
+const TEAM_DISPLAY_ALIASES = {
+  'Cape Verde Islands': 'Cabo Verde',
+  'Cape Verde': 'Cabo Verde',
+};
+
+function canonTeam(raw) {
+  const name = String(raw || '').trim();
+  return TEAM_DISPLAY_ALIASES[name] || name;
+}
+
 export function parseParticipantes(rows) {
   if (!rows || rows.length < 2) return [];
 
@@ -46,8 +59,8 @@ export function parseResultados(rows) {
     .filter(row => row[0] !== undefined && row[0] !== '')
     .map(row => ({
       matchId: Number(row[0]),
-      homeTeam: String(row[1] || '').trim(),
-      awayTeam: String(row[2] || '').trim(),
+      homeTeam: canonTeam(row[1]),
+      awayTeam: canonTeam(row[2]),
       homeGoals: row[3] !== '' && row[3] !== undefined ? Number(row[3]) : null,
       awayGoals: row[4] !== '' && row[4] !== undefined ? Number(row[4]) : null,
       status: String(row[5] || 'NS').trim(),
