@@ -61,8 +61,15 @@ export function detectChampion(resultados) {
   return f.homeGoals > f.awayGoals ? f.homeTeam : f.awayTeam;
 }
 
+// Different spellings of the same country that accent/separator normalization
+// can't bridge (distinct words, not just punctuation). Keys and values must be
+// in already-normalized form (lowercase, no accents, single spaces).
+const TEAM_SYNONYMS = {
+  'cape verde': 'cabo verde',
+};
+
 function normKey(s) {
-  return s
+  const key = s
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
@@ -71,6 +78,7 @@ function normKey(s) {
     .replace(/\s*(?:&|-|\by\b|\band\b)\s*/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+  return TEAM_SYNONYMS[key] || key;
 }
 
 export function calcClasificacion(participantes, resultados) {
