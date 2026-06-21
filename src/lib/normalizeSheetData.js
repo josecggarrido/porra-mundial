@@ -4,8 +4,16 @@ const NUM_PREFIX_RE = /^\d+\s*-\s*/;
 //  - banderas de subdivisión tipo "tag sequence" (🏴 + tag chars): Escocia, Inglaterra, Gales
 const FLAG_RE = /[\u{1F1E0}-\u{1F1FF}]|\u{1F3F4}[\u{E0020}-\u{E007F}]*/gu;
 
+// Opciones del formulario guardadas con un texto no canónico (p.ej. el "4 - Inglaterra en"
+// con un " en" colado en la opción). Mapea al nombre que usa la hoja de Resultados para que
+// cuadren la visualización y la puntuación. Claves/valores ya sin prefijo numérico ni banderas.
+const PARTICIPANT_TEAM_ALIASES = {
+  'Inglaterra en': 'Inglaterra',
+};
+
 function normalizeName(raw) {
-  return (raw || '').replace(FLAG_RE, '').trim().replace(NUM_PREFIX_RE, '').trim();
+  const name = (raw || '').replace(FLAG_RE, '').trim().replace(NUM_PREFIX_RE, '').trim();
+  return PARTICIPANT_TEAM_ALIASES[name] || name;
 }
 
 // Display-name fixes for results stored under a non-canonical spelling
