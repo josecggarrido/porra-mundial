@@ -20,6 +20,38 @@ function flag(team) {
 const TOP_CLASS = { 1: 'top1', 2: 'top2', 3: 'top3' };
 const MEDAL = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
+function LivePanel({ matches }) {
+  return (
+    <section className="live-panel" aria-label="Partidos en directo">
+      <div className="live-panel-title">
+        <span className="live-dot" aria-hidden="true" />
+        En directo
+      </div>
+      {matches.map(m => {
+        const score = m.homeGoals !== null && m.awayGoals !== null
+          ? `${m.homeGoals}–${m.awayGoals}` : '–';
+        return (
+          <div key={m.matchId} className="partido-row">
+            <div className="partido-home">
+              <span>{m.homeTeam}</span><span>{flag(m.homeTeam)}</span>
+            </div>
+            <div className="partido-score partido-score--live">
+              {score}
+              <span className="partido-badge partido-badge--live">en vivo</span>
+            </div>
+            <div className="partido-away">
+              <span>{flag(m.awayTeam)}</span><span>{m.awayTeam}</span>
+            </div>
+          </div>
+        );
+      })}
+      <p className="live-panel-note">
+        La clasificación se actualiza en directo de forma <strong>provisional</strong> con estos marcadores.
+      </p>
+    </section>
+  );
+}
+
 function ParticipantModal({ entry, onClose }) {
   return (
     <div className="modal-bg" role="dialog" aria-modal="true" aria-labelledby="detail-title" onClick={onClose}>
@@ -36,6 +68,7 @@ function ParticipantModal({ entry, onClose }) {
               <div className="equipo-score-pts">
                 <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
                   <span>{s.pts} pts</span>
+                  {s.liveMatches > 0 && <span className="rank-live" title="Jugando en directo"><span className="live-dot" aria-hidden="true" /> en vivo</span>}
                   {s.redCards > 0 && <span style={{ color: 'var(--c-red, #e53e3e)', fontWeight: 700, fontSize: 13 }}>🟥 {s.redCards}</span>}
                 </div>
                 {s.pts > 0 && (
@@ -53,6 +86,11 @@ function ParticipantModal({ entry, onClose }) {
           ))}
         </div>
         <p style={{ marginTop: 16, fontWeight: 700, fontSize: 16 }}>Total: {entry.total} pts</p>
+        {entry.liveMatches > 0 && (
+          <p style={{ marginTop: -8, color: 'var(--c-red, #e53e3e)', fontSize: 13, fontWeight: 600 }}>
+            Incluye {entry.totalLivePts} pts provisionales de partidos en directo.
+          </p>
+        )}
         <div className="modal-actions">
           <button type="button" className="btn ghost" onClick={onClose}>Cerrar</button>
         </div>
@@ -69,6 +107,7 @@ export default function ClasificacionPage() {
   if (error) return <div className="app"><main><div className="container"><p className="empty" style={{ color: 'var(--c-red, #e53e3e)' }}>{error}</p></div></main></div>;
 
   const clasificacion = calcClasificacion(participantes, resultados);
+  const liveMatches = resultados.filter(m => m.status === 'LIVE');
 
   if (clasificacion.length === 0) {
     return (
@@ -82,6 +121,8 @@ export default function ClasificacionPage() {
     <div className="app">
       <main>
         <div className="container">
+          {liveMatches.length > 0 && <LivePanel matches={liveMatches} />}
+
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
             <button type="button" className="btn ghost" onClick={refresh}>
               ↻ Actualizar
@@ -113,9 +154,19 @@ export default function ClasificacionPage() {
                   <span className="rank-pos">{MEDAL[pos] || pos}</span>
                   <span className="rank-name">
                     {entry.nombre}
+                    {entry.liveMatches > 0 && (
+                      <span className="rank-live" title="Tiene equipos jugando en directo">
+                        <span className="live-dot" aria-hidden="true" /> en vivo
+                      </span>
+                    )}
                     <small>ver equipos →</small>
                   </span>
-                  <span className="rank-pts">{entry.total}</span>
+                  <span className="rank-pts">
+                    {entry.total}
+                    {entry.liveMatches > 0 && entry.totalLivePts > 0 && (
+                      <span className="rank-pts-live" title="Puntos provisionales en directo">+{entry.totalLivePts}</span>
+                    )}
+                  </span>
                   <span className="rank-red">{entry.totalRedCards || '—'}</span>
                   <span className="rank-mini">{entry.telegram ? `@${entry.telegram}` : '—'}</span>
                 </div>

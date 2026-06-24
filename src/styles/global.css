@@ -909,6 +909,67 @@ main {
   color: var(--c-red);
 }
 
+/* ── Live panel on the main classification page ───────────── */
+.live-panel {
+  border: 1px solid var(--c-red);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  background: color-mix(in srgb, var(--c-red) 6%, transparent);
+}
+.live-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--c-red);
+  margin-bottom: 10px;
+}
+.live-panel .partido-row + .partido-row {
+  margin-top: 6px;
+}
+.live-panel-note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--c-muted);
+}
+.live-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c-red);
+  animation: livePulse 1.4s ease-in-out infinite;
+}
+@keyframes livePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.7); }
+}
+.rank-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--c-red);
+  vertical-align: middle;
+}
+.rank-pts-live {
+  margin-left: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--c-red);
+}
+
 /* ── Participant detail modal ─────────────────────────────── */
 .equipo-score-grid {
   display: grid;
