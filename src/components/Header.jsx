@@ -26,6 +26,7 @@ const TABS = [
   { to: '/',         label: 'Clasificación', icon: '🏆' },
   { to: '/equipos',  label: 'Equipos',       icon: '🌍' },
   { to: '/partidos', label: 'Partidos',       icon: '📅' },
+  { to: '/info',     label: 'Info',           icon: 'ℹ️' },
 ];
 
 export default function Header() {
