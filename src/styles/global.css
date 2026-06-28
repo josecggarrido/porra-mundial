@@ -989,3 +989,19 @@ main {
   font-size: 15px;
   white-space: nowrap;
 }
+/* Equipo eliminado: nombre en tono más claro (los puntos conseguidos siguen visibles) */
+.equipo-score-name.eliminado {
+  color: var(--c-muted);
+  opacity: 0.6;
+}
+.eliminado-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--c-muted);
+  border: 1px solid var(--c-muted);
+  border-radius: 4px;
+  padding: 0 4px;
+  opacity: 0.8;
+}

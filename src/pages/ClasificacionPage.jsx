@@ -61,9 +61,10 @@ function ParticipantModal({ entry, onClose }) {
         <div className="equipo-score-grid">
           {entry.equipoScores.map(s => (
             <Fragment key={s.equipo}>
-              <div className="equipo-score-name">
+              <div className={`equipo-score-name${s.eliminated ? ' eliminado' : ''}`}>
                 <span>{flag(s.equipo)}</span>
                 <span>{s.equipo}</span>
+                {s.eliminated && <span className="eliminado-badge" title="Eliminado: no sumará más puntos">eliminado</span>}
               </div>
               <div className="equipo-score-pts">
                 <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>

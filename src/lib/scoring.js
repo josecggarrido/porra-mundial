@@ -15,6 +15,11 @@ export function calcTeamStats(team, resultados) {
   let winPts = 0, drawPts = 0, cleanSheetPts = 0, goalBonusPts = 0;
   let pj = 0, v = 0, e = 0, d = 0, gf = 0, gc = 0, redCards = 0;
   let livePts = 0, liveMatches = 0;
+  // Para detectar si el equipo está eliminado (no sumará más puntos):
+  //  - hasUpcoming: tiene algún partido por jugar (NS) o en directo (LIVE)
+  //  - playedKnockout: ha aparecido en alguna eliminatoria (clasificó de la fase de grupos)
+  //  - lostKnockout: perdió una eliminatoria que le deja fuera (todas menos semis, que da paso al 3er puesto)
+  let hasUpcoming = false, playedKnockout = false, lostKnockout = false, finishedCount = 0;
   const phasesReached = new Set();
 
   for (const m of resultados) {
@@ -23,6 +28,18 @@ export function calcTeamStats(team, resultados) {
     if (!isHome && !isAway) continue;
 
     if (m.round) phasesReached.add(m.round);
+
+    const isKnockout = m.round && m.round !== 'group';
+    if (isKnockout) playedKnockout = true;
+    if (m.status === 'NS' || m.status === 'LIVE') hasUpcoming = true;
+    if (FINISHED_STATUSES.has(m.status)) {
+      finishedCount++;
+      if (isKnockout && m.round !== 'sf' && m.homeGoals !== null && m.awayGoals !== null) {
+        const myG = isHome ? m.homeGoals : m.awayGoals;
+        const thG = isHome ? m.awayGoals : m.homeGoals;
+        if (myG < thG) lostKnockout = true;
+      }
+    }
 
     const myRedCards = isHome ? (m.homeRedCards || 0) : (m.awayRedCards || 0);
     redCards += myRedCards;
@@ -57,7 +74,11 @@ export function calcTeamStats(team, resultados) {
   }
 
   const faseAlcanzada = getFaseLabel(phasesReached);
-  return { matchPts, phasePts, winPts, drawPts, cleanSheetPts, goalBonusPts, pj, v, e, d, gf, gc, redCards, livePts, liveMatches, phasesReached, faseAlcanzada };
+  // Eliminado = ya no jugará más (no suma más puntos): no le quedan partidos y, o bien
+  // perdió una eliminatoria, o bien cayó en la fase de grupos (nunca llegó a una eliminatoria).
+  // Si ganó su última eliminatoria y aún no hay rival del siguiente cruce, NO se marca.
+  const eliminated = !hasUpcoming && finishedCount > 0 && (lostKnockout || !playedKnockout);
+  return { matchPts, phasePts, winPts, drawPts, cleanSheetPts, goalBonusPts, pj, v, e, d, gf, gc, redCards, livePts, liveMatches, phasesReached, faseAlcanzada, eliminated };
 }
 
 function getFaseLabel(phasesReached) {
@@ -123,7 +144,7 @@ export function calcClasificacion(participantes, resultados) {
       totalRedCards += s.redCards;
       totalLivePts += s.livePts;
       liveMatches += s.liveMatches;
-      return { equipo: rawEquipo, matchPts: s.matchPts, phasePts: s.phasePts, winPts: s.winPts, drawPts: s.drawPts, cleanSheetPts: s.cleanSheetPts, goalBonusPts: s.goalBonusPts, pj: s.pj, v: s.v, e: s.e, d: s.d, gf: s.gf, gc: s.gc, redCards: s.redCards, livePts: s.livePts, liveMatches: s.liveMatches, faseAlcanzada: s.faseAlcanzada, championBonus: bonus, pts: s.matchPts + s.phasePts + bonus };
+      return { equipo: rawEquipo, matchPts: s.matchPts, phasePts: s.phasePts, winPts: s.winPts, drawPts: s.drawPts, cleanSheetPts: s.cleanSheetPts, goalBonusPts: s.goalBonusPts, pj: s.pj, v: s.v, e: s.e, d: s.d, gf: s.gf, gc: s.gc, redCards: s.redCards, livePts: s.livePts, liveMatches: s.liveMatches, faseAlcanzada: s.faseAlcanzada, eliminated: s.eliminated, championBonus: bonus, pts: s.matchPts + s.phasePts + bonus };
     });
 
     const total = totalMatchPts + totalPhasePts + championBonus;
@@ -165,6 +186,7 @@ export function calcEquiposStats(resultados) {
       gc: s.gc,
       redCards: s.redCards,
       faseAlcanzada: s.faseAlcanzada,
+      eliminated: s.eliminated,
     };
   });
 
