@@ -114,6 +114,34 @@ function isFinishedStatus_(status) {
   return status === 'FT' || status === 'AET' || status === 'PEN';
 }
 
+function hasGoals_(homeGoals, awayGoals) {
+  return homeGoals !== '' && homeGoals !== null && homeGoals !== undefined &&
+         awayGoals !== '' && awayGoals !== null && awayGoals !== undefined;
+}
+
+// Guards against a finished match regressing because of a transient API
+// response. The API occasionally returns a match that is already FT/AET/PEN
+// with null goals, or momentarily reports it as non-finished (NS/LIVE). Since
+// the frontend recomputes the standings live from the sheet, overwriting a good
+// result with an empty/non-finished one made points flap ("a veces unos puntos,
+// otras otros"). Rule: if the stored row is finished with real goals and the
+// fresh row isn't (finished with goals), keep the stored goals + status.
+// A legit finished->finished update (score correction, FT->AET) is accepted.
+function reconcileFinishedRow_(newRow, prevRow) {
+  if (!prevRow) return newRow;
+  var prevStatus = String(prevRow[5]);
+  if (!isFinishedStatus_(prevStatus) || !hasGoals_(prevRow[3], prevRow[4])) return newRow;
+
+  var newStatus = String(newRow[5]);
+  if (isFinishedStatus_(newStatus) && hasGoals_(newRow[3], newRow[4])) return newRow;
+
+  var merged = newRow.slice();
+  merged[3] = prevRow[3];
+  merged[4] = prevRow[4];
+  merged[5] = prevRow[5];
+  return merged;
+}
+
 // Returns [homeGoals, awayGoals] from a match object given the normalized status
 function extractGoals(match, normalizedStatus) {
   if (normalizedStatus === 'NS') return ['', ''];
@@ -326,6 +354,9 @@ function fetchResults() {
       reds[0], reds[1],
     ];
 
+    // Never let a transient API response un-finish a match or blank its score.
+    row = reconcileFinishedRow_(row, prevRow);
+
     if (idToRow.hasOwnProperty(key)) {
       var rowIdx = idToRow[key];
       var existing = existingData[rowIdx];
@@ -468,4 +499,20 @@ function clearTriggers() {
 function doGet() {
   return ContentService.createTextOutput(JSON.stringify({ ok: true, ts: new Date().toISOString() }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Node-only export for unit tests (apps-script/Code.test.cjs). Apps Script has no
+// `module`, so this block is skipped at runtime there.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    normalizeStage: normalizeStage,
+    normalizeTeam: normalizeTeam,
+    normalizeMatchStatus: normalizeMatchStatus,
+    countRedCards: countRedCards,
+    extractGoals: extractGoals,
+    isFinishedStatus_: isFinishedStatus_,
+    storedRedCards_: storedRedCards_,
+    hasGoals_: hasGoals_,
+    reconcileFinishedRow_: reconcileFinishedRow_,
+  };
 }

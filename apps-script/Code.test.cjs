@@ -1,4 +1,4 @@
-// Unit tests for the pure mapping helpers in Code.gs (AllSportsApi2 format).
+// Unit tests for the pure mapping helpers in Code.gs (football-data.org format).
 // Run: node apps-script/Code.test.cjs
 const assert = require('assert');
 const api = require('./Code.gs');
@@ -15,69 +15,130 @@ function test(name, fn) {
   }
 }
 
-// --- countRedCards: AllSportsApi2 /incidents format -----------------------
-// Spec example: México–Sudáfrica, 3 rojas → 1 local / 2 visitante.
-test('countRedCards counts red + yellowRed by isHome, ignores yellows', () => {
-  const incidents = [
-    { incidentType: 'card', incidentClass: 'red', isHome: true },        // local
-    { incidentType: 'card', incidentClass: 'yellow', isHome: true },     // ignorar
-    { incidentType: 'card', incidentClass: 'red', isHome: false },       // visitante
-    { incidentType: 'card', incidentClass: 'yellowRed', isHome: false }, // visitante (2ª amarilla)
-    { incidentType: 'goal', isHome: true },                              // ignorar
+// --- countRedCards: football-data.org bookings format ---------------------
+test('countRedCards counts RED_CARD + YELLOW_RED_CARD by team id, ignores yellows', () => {
+  const bookings = [
+    { card: 'RED_CARD', team: { id: 1 } },         // local
+    { card: 'YELLOW_CARD', team: { id: 1 } },      // ignorar
+    { card: 'YELLOW_RED_CARD', team: { id: 2 } },  // visitante (2ª amarilla)
+    { card: 'RED_CARD', team: { id: 2 } },         // visitante
   ];
-  assert.deepStrictEqual(api.countRedCards(incidents), [1, 2]);
+  assert.deepStrictEqual(api.countRedCards(bookings, 1), [1, 2]);
 });
 
 test('countRedCards returns [0,0] for non-array', () => {
-  assert.deepStrictEqual(api.countRedCards(null), [0, 0]);
-  assert.deepStrictEqual(api.countRedCards(undefined), [0, 0]);
+  assert.deepStrictEqual(api.countRedCards(null, 1), [0, 0]);
+  assert.deepStrictEqual(api.countRedCards(undefined, 1), [0, 0]);
 });
 
 test('countRedCards returns [0,0] when no red cards', () => {
-  const incidents = [{ incidentType: 'card', incidentClass: 'yellow', isHome: true }];
-  assert.deepStrictEqual(api.countRedCards(incidents), [0, 0]);
+  const bookings = [{ card: 'YELLOW_CARD', team: { id: 1 } }];
+  assert.deepStrictEqual(api.countRedCards(bookings, 1), [0, 0]);
 });
 
-// --- normalizeStage: by roundInfo.slug ------------------------------------
-test('normalizeStage maps knockout slugs', () => {
-  assert.strictEqual(api.normalizeStage({ slug: 'round-of-32' }), 'r32');
-  assert.strictEqual(api.normalizeStage({ slug: 'round-of-16' }), 'r16');
-  assert.strictEqual(api.normalizeStage({ slug: 'quarterfinals' }), 'qf');
-  assert.strictEqual(api.normalizeStage({ slug: 'semifinals' }), 'sf');
-  assert.strictEqual(api.normalizeStage({ slug: 'match-for-3rd-place' }), '3rd');
-  assert.strictEqual(api.normalizeStage({ slug: 'final' }), 'final');
+// --- normalizeStage -------------------------------------------------------
+test('normalizeStage maps WC stage names', () => {
+  assert.strictEqual(api.normalizeStage('GROUP_STAGE'), 'group');
+  assert.strictEqual(api.normalizeStage('ROUND_OF_32'), 'r32');
+  assert.strictEqual(api.normalizeStage('LAST_32'), 'r32');
+  assert.strictEqual(api.normalizeStage('ROUND_OF_16'), 'r16');
+  assert.strictEqual(api.normalizeStage('LAST_16'), 'r16');
+  assert.strictEqual(api.normalizeStage('QUARTER_FINALS'), 'qf');
+  assert.strictEqual(api.normalizeStage('SEMI_FINALS'), 'sf');
+  assert.strictEqual(api.normalizeStage('THIRD_PLACE'), '3rd');
+  assert.strictEqual(api.normalizeStage('FINAL'), 'final');
 });
 
-test('normalizeStage falls back to group for group rounds / unknown', () => {
-  assert.strictEqual(api.normalizeStage({ round: 2 }), 'group');
-  assert.strictEqual(api.normalizeStage({ slug: 'something-else' }), 'group');
-  assert.strictEqual(api.normalizeStage(undefined), 'group');
-});
-
-// --- normalizeMatchStatus: by status.type + score -------------------------
-test('normalizeMatchStatus maps basic types', () => {
-  assert.strictEqual(api.normalizeMatchStatus({ status: { type: 'notstarted' } }), 'NS');
-  assert.strictEqual(api.normalizeMatchStatus({ status: { type: 'inprogress' } }), 'LIVE');
-  assert.strictEqual(api.normalizeMatchStatus({ status: { type: 'postponed' } }), 'PST');
-  assert.strictEqual(api.normalizeMatchStatus({ status: { type: 'canceled' } }), 'CANC');
+// --- normalizeMatchStatus: apiStatus + duration ---------------------------
+test('normalizeMatchStatus maps basic statuses', () => {
+  assert.strictEqual(api.normalizeMatchStatus('TIMED'), 'NS');
+  assert.strictEqual(api.normalizeMatchStatus('SCHEDULED'), 'NS');
+  assert.strictEqual(api.normalizeMatchStatus('IN_PLAY'), 'LIVE');
+  assert.strictEqual(api.normalizeMatchStatus('PAUSED'), 'LIVE');
+  assert.strictEqual(api.normalizeMatchStatus('POSTPONED'), 'PST');
+  assert.strictEqual(api.normalizeMatchStatus('CANCELLED'), 'CANC');
 });
 
 test('normalizeMatchStatus derives FT/AET/PEN when finished', () => {
-  assert.strictEqual(api.normalizeMatchStatus({ status: { type: 'finished' }, homeScore: { current: 1 } }), 'FT');
-  assert.strictEqual(api.normalizeMatchStatus({ status: { type: 'finished' }, homeScore: { current: 1, overtime: 1 } }), 'AET');
-  assert.strictEqual(api.normalizeMatchStatus({ status: { type: 'finished' }, homeScore: { current: 1, penalties: 4 } }), 'PEN');
+  assert.strictEqual(api.normalizeMatchStatus('FINISHED', 'REGULAR'), 'FT');
+  assert.strictEqual(api.normalizeMatchStatus('FINISHED', 'EXTRA_TIME'), 'AET');
+  assert.strictEqual(api.normalizeMatchStatus('FINISHED', 'PENALTY_SHOOTOUT'), 'PEN');
 });
 
 // --- extractGoals ---------------------------------------------------------
 test('extractGoals returns empty strings for NS', () => {
-  assert.deepStrictEqual(api.extractGoals({ homeScore: { current: 0 }, awayScore: { current: 0 } }, 'NS'), ['', '']);
+  assert.deepStrictEqual(
+    api.extractGoals({ score: { fullTime: { home: null, away: null } } }, 'NS'),
+    ['', '']
+  );
 });
 
-test('extractGoals reads homeScore.current', () => {
+test('extractGoals reads score.fullTime for FT', () => {
   assert.deepStrictEqual(
-    api.extractGoals({ homeScore: { current: 2 }, awayScore: { current: 1 } }, 'FT'),
+    api.extractGoals({ score: { fullTime: { home: 2, away: 1 } } }, 'FT'),
     [2, 1]
   );
+});
+
+test('extractGoals returns empty when fullTime null (transient finished response)', () => {
+  assert.deepStrictEqual(
+    api.extractGoals({ score: { fullTime: { home: null, away: null } } }, 'FT'),
+    ['', '']
+  );
+});
+
+// --- reconcileFinishedRow_: sticky finished results -----------------------
+// Bug: la API espejo a veces devuelve un partido ya finalizado con marcador
+// nulo o un estado momentáneamente no-finalizado. fetchResults reescribía la
+// fila y el frontend perdía/recuperaba puntos ("a veces unos puntos, otras
+// otros"). Un partido finalizado con marcador válido no debe regresar.
+const ROW = (id, hg, ag, status) => [id, 'España', 'Brasil', hg, ag, status, 'group', '2026-06-20T18:00:00Z', 0, 0];
+
+test('reconcileFinishedRow_ keeps stored result when API regresses goals to empty', () => {
+  const prev = ROW(1, 2, 0, 'FT');
+  const fresh = ROW(1, '', '', 'FT'); // transient: finished but goals dropped
+  const merged = api.reconcileFinishedRow_(fresh, prev);
+  assert.strictEqual(merged[3], 2);
+  assert.strictEqual(merged[4], 0);
+  assert.strictEqual(merged[5], 'FT');
+});
+
+test('reconcileFinishedRow_ keeps stored result when API regresses status to NS', () => {
+  const prev = ROW(1, 2, 0, 'FT');
+  const fresh = ROW(1, '', '', 'NS'); // transient: match "un-finished"
+  const merged = api.reconcileFinishedRow_(fresh, prev);
+  assert.strictEqual(merged[3], 2);
+  assert.strictEqual(merged[4], 0);
+  assert.strictEqual(merged[5], 'FT');
+});
+
+test('reconcileFinishedRow_ accepts a legit finished-to-finished score update', () => {
+  const prev = ROW(1, 2, 0, 'FT');
+  const fresh = ROW(1, 2, 1, 'FT'); // real correction, still finished with goals
+  const merged = api.reconcileFinishedRow_(fresh, prev);
+  assert.strictEqual(merged[3], 2);
+  assert.strictEqual(merged[4], 1);
+  assert.strictEqual(merged[5], 'FT');
+});
+
+test('reconcileFinishedRow_ accepts FT->AET upgrade with goals', () => {
+  const prev = ROW(1, 2, 2, 'FT');
+  const fresh = ROW(1, 3, 2, 'AET');
+  const merged = api.reconcileFinishedRow_(fresh, prev);
+  assert.strictEqual(merged[3], 3);
+  assert.strictEqual(merged[4], 2);
+  assert.strictEqual(merged[5], 'AET');
+});
+
+test('reconcileFinishedRow_ passes through when there is no previous row', () => {
+  const fresh = ROW(1, '', '', 'NS');
+  assert.deepStrictEqual(api.reconcileFinishedRow_(fresh, null), fresh);
+});
+
+test('reconcileFinishedRow_ passes through when previous row is not finished', () => {
+  const prev = ROW(1, '', '', 'NS');
+  const fresh = ROW(1, 1, 0, 'LIVE');
+  assert.deepStrictEqual(api.reconcileFinishedRow_(fresh, prev), fresh);
 });
 
 console.log('\n' + passed + ' passed');
