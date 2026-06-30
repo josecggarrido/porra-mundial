@@ -146,11 +146,15 @@ function reconcileFinishedRow_(newRow, prevRow) {
 function extractGoals(match, normalizedStatus) {
   if (normalizedStatus === 'NS') return ['', ''];
   var score = match.score;
-  // For AET/PEN use extraTime score (goals at end of extra time, not penalties)
-  if ((normalizedStatus === 'AET' || normalizedStatus === 'PEN') &&
-      score.extraTime && score.extraTime.home !== null) {
-    return [score.extraTime.home, score.extraTime.away];
-  }
+  // score.fullTime is the score at the END of the match EXCLUDING the penalty
+  // shootout (i.e. the result after extra time). For FT it's the 90' result, for
+  // AET the result after extra time, and for PEN the draw that sent it to
+  // penalties (e.g. 1-1). That draw is exactly what must be stored — the shootout
+  // (score.penalties) is NOT added to the goal tally.
+  // IMPORTANT: do NOT use score.extraTime — in football-data.org v4 that field is
+  // only the goals scored DURING the extra-time period (an increment, usually
+  // 0-0), so using it dropped the real goals and stored 0-0 for penalty matches,
+  // wrongly awarding clean-sheet bonuses.
   if (score.fullTime && score.fullTime.home !== null) {
     return [score.fullTime.home, score.fullTime.away];
   }

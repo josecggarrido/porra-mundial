@@ -73,16 +73,19 @@ test('calcClasificacion exposes totalLivePts and liveMatches', () => {
 
 // --- Penalty shootout (PEN): el partido sigue contando como empate, pero el
 //     perdedor de la tanda queda eliminado y el ganador avanza ----------------
+// Marcador real de un partido de penaltis: empate al final de la prórroga
+// (1-1), NO 0-0. La tanda no se suma a los goles.
 const koDraw = (over) => ({
-  homeTeam: 'Alemania', awayTeam: 'Paraguay', homeGoals: 0, awayGoals: 0,
+  homeTeam: 'Alemania', awayTeam: 'Paraguay', homeGoals: 1, awayGoals: 1,
   status: 'PEN', round: 'r32', date: '', homeRedCards: 0, awayRedCards: 0, ...over,
 });
 
-test('PEN: el partido cuenta como empate (1 pt cada uno)', () => {
+test('PEN: el partido cuenta como empate (1 pt cada uno), sin portería a cero', () => {
   const al = calcTeamStats('Alemania', [koDraw()]);
   assert.strictEqual(al.drawPts, 1, 'empate = 1 pt');
   assert.strictEqual(al.e, 1);
   assert.strictEqual(al.v, 0);
+  assert.strictEqual(al.cleanSheetPts, 0, '1-1 no da portería a cero');
 });
 
 test('PEN: el perdedor de la tanda (no avanza) queda eliminado', () => {

@@ -27,9 +27,10 @@ export function calcTeamStats(team, resultados) {
   //  - lostKnockout: perdió una eliminatoria que le deja fuera (todas menos semis, que da paso al 3er puesto)
   let hasUpcoming = false, playedKnockout = false, lostKnockout = false, finishedCount = 0;
   const phasesReached = new Set();
-  // Empates por penaltis en eliminatorias de avance: el marcador queda 0-0 (no
-  // se puede saber quién pasó mirando los goles), así que apuntamos el rival y
-  // la fase para resolver luego, por avance, quién ganó la tanda.
+  // Empates por penaltis en eliminatorias de avance: el marcador refleja el
+  // resultado real al final de la prórroga (un empate, p.ej. 1-1; la tanda no se
+  // suma a los goles), así que no se puede saber quién pasó mirando los goles.
+  // Apuntamos el rival y la fase para resolver luego, por avance, quién ganó la tanda.
   const drewAdvance = [];
 
   for (const m of resultados) {
@@ -116,9 +117,10 @@ function getFaseLabel(phasesReached) {
 
 export function detectChampion(resultados) {
   // Acepta final resuelta en tiempo reglamentario o en la prórroga (AET). Una
-  // final decidida en penaltis queda 0-0 (empate): el ganador no es inferible
-  // por marcador y la final no alimenta ninguna ronda posterior, así que ese
-  // caso no se resuelve aquí (requeriría guardar el ganador de la tanda).
+  // final decidida en penaltis queda como empate por marcador (p.ej. 1-1): el
+  // ganador no es inferible por goles y la final no alimenta ninguna ronda
+  // posterior, así que ese caso no se resuelve aquí (requeriría guardar el
+  // ganador de la tanda).
   const f = resultados.find(m => m.round === 'final' && FINISHED_STATUSES.has(m.status));
   if (!f || f.homeGoals === null || f.awayGoals === null || f.homeGoals === f.awayGoals) return null;
   return f.homeGoals > f.awayGoals ? f.homeTeam : f.awayTeam;
