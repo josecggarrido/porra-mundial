@@ -71,4 +71,33 @@ test('calcClasificacion exposes totalLivePts and liveMatches', () => {
   assert.strictEqual(row.liveMatches, 1);
 });
 
+// --- Penalty shootout (PEN): el partido sigue contando como empate, pero el
+//     perdedor de la tanda queda eliminado y el ganador avanza ----------------
+const koDraw = (over) => ({
+  homeTeam: 'Alemania', awayTeam: 'Paraguay', homeGoals: 0, awayGoals: 0,
+  status: 'PEN', round: 'r32', date: '', homeRedCards: 0, awayRedCards: 0, ...over,
+});
+
+test('PEN: el partido cuenta como empate (1 pt cada uno)', () => {
+  const al = calcTeamStats('Alemania', [koDraw()]);
+  assert.strictEqual(al.drawPts, 1, 'empate = 1 pt');
+  assert.strictEqual(al.e, 1);
+  assert.strictEqual(al.v, 0);
+});
+
+test('PEN: el perdedor de la tanda (no avanza) queda eliminado', () => {
+  const resultados = [
+    koDraw(),
+    { matchId: 2, homeTeam: 'Paraguay', awayTeam: '', homeGoals: null, awayGoals: null, status: 'NS', round: 'r16', date: '', homeRedCards: 0, awayRedCards: 0 },
+  ];
+  assert.strictEqual(calcTeamStats('Alemania', resultados).eliminated, true, 'Alemania perdió la tanda');
+  assert.strictEqual(calcTeamStats('Paraguay', resultados).eliminated, false, 'Paraguay avanzó a octavos');
+});
+
+test('PEN: sin partido siguiente todavía, NINGÚN equipo se da por eliminado', () => {
+  const resultados = [koDraw()];
+  assert.strictEqual(calcTeamStats('Alemania', resultados).eliminated, false);
+  assert.strictEqual(calcTeamStats('Paraguay', resultados).eliminated, false);
+});
+
 console.log('\n' + passed + ' passed');

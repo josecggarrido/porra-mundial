@@ -56,17 +56,46 @@ function formatDayTime(iso) {
 // logical bracket ids, who plays each match. A side resolves to { name, real }
 // where `real` means we know the concrete team (so we can show its flag);
 // otherwise it's "por jugar" and the node shows the match date instead.
+// Para cada partido, a qué hueco (partido siguiente + lado) alimenta su ganador.
+// Permite saber quién pasó una tanda de penaltis: la hoja coloca al equipo que
+// avanzó en ese hueco aunque el marcador del cruce quedara en empate.
+const WINNER_FEED = (() => {
+  const map = new Map();
+  for (const [nextId, def] of Object.entries(KO_MATCHES)) {
+    for (const side of ['home', 'away']) {
+      if (def[side] && def[side].win != null) map.set(def[side].win, { nextId: Number(nextId), side });
+    }
+  }
+  return map;
+})();
+
 function makeKnockout(logicalToReal) {
-  // winner/loser of a match, only resolvable from a decisive finished result
+  // Equipo que avanzó desde el partido `id`, leído del hueco que alimenta en la
+  // ronda siguiente (clave para resolver el ganador de una tanda de penaltis).
+  function advancedTeam(id) {
+    const feed = WINNER_FEED.get(id);
+    if (!feed) return null;
+    const next = logicalToReal.get(feed.nextId);
+    if (!next) return null;
+    return feed.side === 'home' ? next.homeTeam : next.awayTeam;
+  }
+
+  // winner/loser of a match. Si el marcador es decisivo, sale de los goles; si
+  // quedó en empate (penaltis) se infiere por quién avanzó a la ronda siguiente.
   function decisive(id) {
     const m = logicalToReal.get(id);
     if (!isFinished(m) || m.homeGoals == null || m.awayGoals == null) return null;
-    if (m.homeGoals === m.awayGoals) return null; // PEN/draw: can't tell from goals
-    const homeWon = m.homeGoals > m.awayGoals;
-    return {
-      winner: homeWon ? m.homeTeam : m.awayTeam,
-      loser: homeWon ? m.awayTeam : m.homeTeam,
-    };
+    if (m.homeGoals !== m.awayGoals) {
+      const homeWon = m.homeGoals > m.awayGoals;
+      return {
+        winner: homeWon ? m.homeTeam : m.awayTeam,
+        loser: homeWon ? m.awayTeam : m.homeTeam,
+      };
+    }
+    const adv = advancedTeam(id); // empate → ganador de la tanda por avance
+    if (adv === m.homeTeam) return { winner: m.homeTeam, loser: m.awayTeam };
+    if (adv === m.awayTeam) return { winner: m.awayTeam, loser: m.homeTeam };
+    return null; // todavía no se sabe quién pasó (p.ej. final por penaltis)
   }
 
   function resolveSide(side) {
@@ -89,7 +118,7 @@ function makeKnockout(logicalToReal) {
     // back to the structural resolution from the bracket tree.
     const home = r && r.homeTeam ? { name: r.homeTeam, real: true } : resolveSide(def.home);
     const away = r && r.awayTeam ? { name: r.awayTeam, real: true } : resolveSide(def.away);
-    return { id, def, result: r, home, away };
+    return { id, def, result: r, home, away, dec: decisive(id) };
   }
 
   return { resolveMatch };
@@ -98,13 +127,13 @@ function makeKnockout(logicalToReal) {
 // One match inside the bracket (or 3rd-place / final blocks). When neither team
 // is known yet we drop the "por jugar" rows and just show the match date.
 function MatchNode({ node }) {
-  const { result: m, home, away } = node;
+  const { result: m, home, away, dec } = node;
   const live = m && isLiveStatus(m.status);
-  const finished = isFinished(m);
   const pending = !m || isPendingStatus(m.status);
-  const decisive = finished && m.homeGoals != null && m.awayGoals != null && m.homeGoals !== m.awayGoals;
-  const homeWon = decisive && m.homeGoals > m.awayGoals;
-  const awayWon = decisive && m.awayGoals > m.homeGoals;
+  // El ganador sale de `dec` (resuelve también las tandas de penaltis, donde el
+  // marcador queda empatado pero uno de los dos avanzó).
+  const homeWon = !!dec && dec.winner === home.name;
+  const awayWon = !!dec && dec.winner === away.name;
   const badge = m && STATUS_BADGE[String(m.status).toUpperCase()];
   const bothUnknown = !home.real && !away.real;
 

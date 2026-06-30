@@ -5,6 +5,12 @@ const FINISHED_STATUSES = new Set(['FT', 'AET', 'PEN']);
 // para poder mostrarlos como provisionales en la UI.
 const SCORING_STATUSES = new Set([...FINISHED_STATUSES, 'LIVE']);
 const PHASE_ORDER = ['final', '3rd', 'sf', 'qf', 'r16', 'last_16', 'r32', 'last_32', 'group'];
+const PHASE_INDEX = Object.fromEntries(PHASE_ORDER.map((p, i) => [p, i]));
+// Eliminatorias cuyo ganador avanza a otra ronda que la hoja sí registra
+// (16avos→octavos, octavos→cuartos, cuartos→semis). Las semis ya se excluyen
+// aparte (su perdedor juega el 3er puesto) y final/3er puesto no tienen ronda
+// posterior, así que un empate por penaltis ahí no se puede inferir por avance.
+const ADVANCE_ROUNDS = new Set(['r32', 'last_32', 'r16', 'last_16', 'qf']);
 const PHASE_LABELS = {
   group: 'Grupos', r32: '1/16', last_32: '1/16', r16: 'Octavos', last_16: 'Octavos',
   qf: 'Cuartos', sf: 'Semis', '3rd': '3er puesto', final: 'Final',
@@ -21,6 +27,10 @@ export function calcTeamStats(team, resultados) {
   //  - lostKnockout: perdió una eliminatoria que le deja fuera (todas menos semis, que da paso al 3er puesto)
   let hasUpcoming = false, playedKnockout = false, lostKnockout = false, finishedCount = 0;
   const phasesReached = new Set();
+  // Empates por penaltis en eliminatorias de avance: el marcador queda 0-0 (no
+  // se puede saber quién pasó mirando los goles), así que apuntamos el rival y
+  // la fase para resolver luego, por avance, quién ganó la tanda.
+  const drewAdvance = [];
 
   for (const m of resultados) {
     const isHome = m.homeTeam === team;
@@ -38,6 +48,11 @@ export function calcTeamStats(team, resultados) {
         const myG = isHome ? m.homeGoals : m.awayGoals;
         const thG = isHome ? m.awayGoals : m.homeGoals;
         if (myG < thG) lostKnockout = true;
+        else if (myG === thG && ADVANCE_ROUNDS.has(m.round)) {
+          // Empate (tanda de penaltis): perderé si mi rival aparece en una
+          // ronda más avanzada (avanzó él) — se resuelve tras el bucle.
+          drewAdvance.push({ phaseIdx: PHASE_INDEX[m.round] ?? 99, opponent: isHome ? m.awayTeam : m.homeTeam });
+        }
       }
     }
 
@@ -73,6 +88,17 @@ export function calcTeamStats(team, resultados) {
     phasePts += PHASE_POINTS[phase] || 0;
   }
 
+  // Resolver tandas de penaltis: si en una eliminatoria de avance empaté y mi
+  // rival ya figura en una ronda más avanzada, gané él la tanda y quedo fuera.
+  // Si todavía no avanzó nadie (la ronda siguiente aún no existe), no marco a
+  // ninguno como eliminado para no descartar al ganador por error.
+  for (const { phaseIdx, opponent } of drewAdvance) {
+    const oppAdvanced = resultados.some(x =>
+      (x.homeTeam === opponent || x.awayTeam === opponent) && (PHASE_INDEX[x.round] ?? 99) < phaseIdx,
+    );
+    if (oppAdvanced) lostKnockout = true;
+  }
+
   const faseAlcanzada = getFaseLabel(phasesReached);
   // Eliminado = ya no jugará más (no suma más puntos): no le quedan partidos y, o bien
   // perdió una eliminatoria, o bien cayó en la fase de grupos (nunca llegó a una eliminatoria).
@@ -89,7 +115,11 @@ function getFaseLabel(phasesReached) {
 }
 
 export function detectChampion(resultados) {
-  const f = resultados.find(m => m.round === 'final' && m.status === 'FT');
+  // Acepta final resuelta en tiempo reglamentario o en la prórroga (AET). Una
+  // final decidida en penaltis queda 0-0 (empate): el ganador no es inferible
+  // por marcador y la final no alimenta ninguna ronda posterior, así que ese
+  // caso no se resuelve aquí (requeriría guardar el ganador de la tanda).
+  const f = resultados.find(m => m.round === 'final' && FINISHED_STATUSES.has(m.status));
   if (!f || f.homeGoals === null || f.awayGoals === null || f.homeGoals === f.awayGoals) return null;
   return f.homeGoals > f.awayGoals ? f.homeTeam : f.awayTeam;
 }
