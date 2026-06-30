@@ -146,19 +146,24 @@ function reconcileFinishedRow_(newRow, prevRow) {
 function extractGoals(match, normalizedStatus) {
   if (normalizedStatus === 'NS') return ['', ''];
   var score = match.score;
-  // score.fullTime is the score at the END of the match EXCLUDING the penalty
-  // shootout (i.e. the result after extra time). For FT it's the 90' result, for
-  // AET the result after extra time, and for PEN the draw that sent it to
-  // penalties (e.g. 1-1). That draw is exactly what must be stored — the shootout
-  // (score.penalties) is NOT added to the goal tally.
-  // IMPORTANT: do NOT use score.extraTime — in football-data.org v4 that field is
-  // only the goals scored DURING the extra-time period (an increment, usually
-  // 0-0), so using it dropped the real goals and stored 0-0 for penalty matches,
-  // wrongly awarding clean-sheet bonuses.
-  if (score.fullTime && score.fullTime.home !== null) {
-    return [score.fullTime.home, score.fullTime.away];
+  if (!score || !score.fullTime || score.fullTime.home === null || score.fullTime.home === undefined) {
+    return ['', ''];
   }
-  return ['', ''];
+  var home = score.fullTime.home;
+  var away = score.fullTime.away;
+  // CUIDADO: en football-data.org v4 score.fullTime INCLUYE la tanda de penaltis.
+  // Para un partido decidido en penaltis fullTime es, p.ej., 7-6 (1-1 al final de
+  // la prórroga + 6-5 en la tanda). El marcador que debe contar es el del partido
+  // (el empate al final de la prórroga), NO el de la tanda. score.penalties aísla
+  // solo los goles de la tanda, así que se los restamos a fullTime para recuperar
+  // el resultado reglamentario/prórroga (regularTime + extraTime), que es un empate.
+  // Para FT y AET no hay tanda (score.penalties ausente o null) y fullTime ya es el
+  // resultado correcto.
+  if (normalizedStatus === 'PEN' && score.penalties && score.penalties.home !== null) {
+    home = home - score.penalties.home;
+    away = away - score.penalties.away;
+  }
+  return [home, away];
 }
 
 // Diagnostic: run first to verify configuration and API connectivity
