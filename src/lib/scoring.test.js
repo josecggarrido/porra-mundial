@@ -103,4 +103,31 @@ test('PEN: sin partido siguiente todavía, NINGÚN equipo se da por eliminado', 
   assert.strictEqual(calcTeamStats('Paraguay', resultados).eliminated, false);
 });
 
+// --- Prórroga (AET): marcador decisivo (p.ej. 2-1) pero cuenta como empate;
+//     el ganador de la prórroga avanza y el perdedor queda eliminado ------------
+const koAet = (over) => ({
+  homeTeam: 'Alemania', awayTeam: 'Paraguay', homeGoals: 2, awayGoals: 1,
+  status: 'AET', round: 'r32', date: '', homeRedCards: 0, awayRedCards: 0, ...over,
+});
+
+test('AET: el partido cuenta como empate (1 pt cada uno), no victoria', () => {
+  const al = calcTeamStats('Alemania', [koAet()]);
+  assert.strictEqual(al.drawPts, 1, 'ganador en prórroga: empate = 1 pt');
+  assert.strictEqual(al.e, 1);
+  assert.strictEqual(al.v, 0, 'no cuenta como victoria');
+  const pa = calcTeamStats('Paraguay', [koAet()]);
+  assert.strictEqual(pa.drawPts, 1, 'perdedor en prórroga: empate = 1 pt');
+  assert.strictEqual(pa.e, 1);
+  assert.strictEqual(pa.d, 0, 'no cuenta como derrota');
+});
+
+test('AET: el ganador de la prórroga avanza y el perdedor queda eliminado', () => {
+  const resultados = [
+    koAet(),
+    { matchId: 2, homeTeam: 'Alemania', awayTeam: '', homeGoals: null, awayGoals: null, status: 'NS', round: 'r16', date: '', homeRedCards: 0, awayRedCards: 0 },
+  ];
+  assert.strictEqual(calcTeamStats('Alemania', resultados).eliminated, false, 'Alemania ganó la prórroga');
+  assert.strictEqual(calcTeamStats('Paraguay', resultados).eliminated, true, 'Paraguay perdió la prórroga');
+});
+
 console.log('\n' + passed + ' passed');

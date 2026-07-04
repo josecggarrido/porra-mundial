@@ -1,5 +1,10 @@
 const PHASE_POINTS = { r32: 1, last_32: 1, r16: 2, last_16: 2, qf: 3, sf: 4, '3rd': 5, final: 5 };
 const FINISHED_STATUSES = new Set(['FT', 'AET', 'PEN']);
+// Eliminatorias resueltas más allá de los 90': prórroga (AET) y penaltis (PEN).
+// En ambos casos el cara a cara puntúa como EMPATE (1 pt cada uno); el ganador
+// igualmente avanza (en AET se sabe por el marcador de la prórroga, que es
+// decisivo; en PEN el marcador queda en empate y se infiere por avance).
+const AFTER_90_STATUSES = new Set(['AET', 'PEN']);
 // Partidos en vivo puntúan de forma PROVISIONAL: cuentan igual que un finalizado
 // para que la clasificación se mueva en directo, pero se marcan aparte (livePts)
 // para poder mostrarlos como provisionales en la UI.
@@ -72,8 +77,10 @@ export function calcTeamStats(team, resultados) {
     gc += theirGoals;
 
     let mp = 0;
-    if (myGoals > theirGoals) { winPts += 3; mp += 3; v++; }
-    else if (myGoals === theirGoals) { drawPts += 1; mp += 1; e++; }
+    // Prórroga o penaltis cuentan como empate, aunque el marcador sea decisivo.
+    const decidedAfter90 = AFTER_90_STATUSES.has(m.status);
+    if (!decidedAfter90 && myGoals > theirGoals) { winPts += 3; mp += 3; v++; }
+    else if (decidedAfter90 || myGoals === theirGoals) { drawPts += 1; mp += 1; e++; }
     else { d++; }
 
     if (theirGoals === 0) { cleanSheetPts += 1; mp += 1; }
