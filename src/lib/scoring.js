@@ -1,4 +1,7 @@
-const PHASE_POINTS = { r32: 1, last_32: 1, r16: 2, last_16: 2, qf: 3, sf: 4, '3rd': 5, final: 5 };
+// El partido por el 3er puesto NO da puntos de fase: el semifinalista perdedor
+// se queda con los 4 pts de `sf`. Solo pasar a la `final` añade fase (+5). Los
+// puntos propios del partido del 3er puesto (victoria/portería/goles) sí cuentan.
+const PHASE_POINTS = { r32: 1, last_32: 1, r16: 2, last_16: 2, qf: 3, sf: 4, '3rd': 0, final: 5 };
 const FINISHED_STATUSES = new Set(['FT', 'AET', 'PEN']);
 // Eliminatorias resueltas más allá de los 90': prórroga (AET) y penaltis (PEN).
 // En ambos casos el cara a cara puntúa como EMPATE (1 pt cada uno); el ganador

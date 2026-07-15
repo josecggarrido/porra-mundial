@@ -109,7 +109,7 @@ Un equipo "alcanza" una fase cuando tiene al menos un partido con ese `round` en
 | `r16` (octavos / Round of 16) | +2 |
 | `qf` (cuartos) | +3 |
 | `sf` (semis) | +4 |
-| `3rd` (partido 3er puesto) | +5 |
+| `3rd` (partido 3er puesto) | +0 (no da puntos de fase; solo los puntos propios del partido) |
 | `final` (la final) | +5 |
 | Campeón (ganador de `final`) | +10 adicionales |
 

@@ -130,4 +130,50 @@ test('AET: el ganador de la prórroga avanza y el perdedor queda eliminado', () 
   assert.strictEqual(calcTeamStats('Paraguay', resultados).eliminated, true, 'Paraguay perdió la prórroga');
 });
 
+// --- Puntos de fase: semis, 3er puesto y final -----------------------------
+// El semifinalista perdedor pasa al 3er puesto, que NO da puntos de fase extra
+// (solo los puntos propios del partido). El finalista sí suma la fase `final`.
+const sfMatch = (over) => ({
+  homeTeam: 'España', awayTeam: 'Francia', homeGoals: 2, awayGoals: 1,
+  status: 'FT', round: 'sf', date: '', homeRedCards: 0, awayRedCards: 0, ...over,
+});
+
+test('3er puesto NO da puntos de fase (solo los de semis)', () => {
+  const resultados = [
+    sfMatch(),
+    // Francia perdió la semi y juega el partido por el 3er puesto
+    { homeTeam: 'Francia', awayTeam: 'Portugal', homeGoals: 1, awayGoals: 0,
+      status: 'FT', round: '3rd', date: '', homeRedCards: 0, awayRedCards: 0 },
+  ];
+  const fra = calcTeamStats('Francia', resultados);
+  // Fase: solo sf(4). El 3er puesto no suma nada extra por fase.
+  assert.strictEqual(fra.phasePts, 4, 'sf(4) + 3rd(0)');
+  // Los puntos del propio partido del 3er puesto sí cuentan (victoria + portería).
+  // sf: derrota 0. 3rd: victoria(3)+portería(1) = 4.
+  assert.strictEqual(fra.matchPts, 4, '3er puesto: victoria(3)+portería(1)');
+});
+
+test('finalista suma la fase final (sf + final)', () => {
+  const resultados = [
+    sfMatch(),
+    { homeTeam: 'España', awayTeam: 'Portugal', homeGoals: 0, awayGoals: 0,
+      status: 'NS', round: 'final', date: '', homeRedCards: 0, awayRedCards: 0 },
+  ];
+  const esp = calcTeamStats('España', resultados);
+  assert.strictEqual(esp.phasePts, 9, 'sf(4) + final(5)');
+});
+
+test('campeón: el ganador de la final suma exactamente +10', () => {
+  const participantes = [{ nombre: 'Ana', telegram: 'ana', equipos: ['España'] }];
+  const resultados = [
+    { homeTeam: 'España', awayTeam: 'Portugal', homeGoals: 2, awayGoals: 1,
+      status: 'FT', round: 'final', date: '', homeRedCards: 0, awayRedCards: 0 },
+  ];
+  const [row] = calcClasificacion(participantes, resultados);
+  const esp = row.equipoScores[0];
+  assert.strictEqual(esp.championBonus, 10, 'campeón +10');
+  // final: fase(5) + victoria(3)+portería? no (concedió 1) + campeón(10) = 5+3+10 = 18
+  assert.strictEqual(esp.pts, 18, 'fase final(5) + victoria(3) + campeón(10)');
+});
+
 console.log('\n' + passed + ' passed');
