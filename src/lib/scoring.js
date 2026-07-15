@@ -126,14 +126,19 @@ function getFaseLabel(phasesReached) {
 }
 
 export function detectChampion(resultados) {
-  // Acepta final resuelta en tiempo reglamentario o en la prórroga (AET). Una
-  // final decidida en penaltis queda como empate por marcador (p.ej. 1-1): el
-  // ganador no es inferible por goles y la final no alimenta ninguna ronda
-  // posterior, así que ese caso no se resuelve aquí (requeriría guardar el
-  // ganador de la tanda).
   const f = resultados.find(m => m.round === 'final' && FINISHED_STATUSES.has(m.status));
-  if (!f || f.homeGoals === null || f.awayGoals === null || f.homeGoals === f.awayGoals) return null;
-  return f.homeGoals > f.awayGoals ? f.homeTeam : f.awayTeam;
+  if (!f || f.homeGoals === null || f.awayGoals === null) return null;
+  // Final resuelta en tiempo reglamentario o en la prórroga (AET): el marcador
+  // decide el campeón.
+  if (f.homeGoals !== f.awayGoals) return f.homeGoals > f.awayGoals ? f.homeTeam : f.awayTeam;
+  // Final por penaltis: el marcador del partido queda en empate (p.ej. 1-1) y la
+  // final no alimenta ninguna ronda posterior, así que el ganador no es inferible
+  // por goles ni por avance. Se resuelve con el marcador de la tanda (score.penalties,
+  // guardado en la hoja como homePen/awayPen). Sin tanda registrada, no hay campeón.
+  if (f.status === 'PEN' && f.homePen != null && f.awayPen != null && f.homePen !== f.awayPen) {
+    return f.homePen > f.awayPen ? f.homeTeam : f.awayTeam;
+  }
+  return null;
 }
 
 // Different spellings of the same country that accent/separator normalization

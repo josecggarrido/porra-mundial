@@ -139,7 +139,23 @@ function reconcileFinishedRow_(newRow, prevRow) {
   merged[3] = prevRow[3];
   merged[4] = prevRow[4];
   merged[5] = prevRow[5];
+  // Conserva también el marcador de la tanda ya guardado (cols K/L): si el
+  // resultado bueno es el previo, sus penaltis también lo son.
+  if (prevRow[10] !== '' && prevRow[10] !== null && prevRow[10] !== undefined) {
+    merged[10] = prevRow[10];
+    merged[11] = prevRow[11];
+  }
   return merged;
+}
+
+// Ensures every row has exactly `width` cells so setValues gets a rectangular
+// array (filas antiguas de la hoja pueden tener menos columnas que las nuevas).
+function padRows_(rows, width) {
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    while (r.length < width) r.push('');
+  }
+  return rows;
 }
 
 // Returns [homeGoals, awayGoals] from a match object given the normalized status
@@ -164,6 +180,20 @@ function extractGoals(match, normalizedStatus) {
     away = away - score.penalties.away;
   }
   return [home, away];
+}
+
+// Returns [homePenalties, awayPenalties] for a penalty shootout, or ['', ''].
+// El marcador del partido decidido en penaltis queda en empate (ver extractGoals),
+// así que el ganador de la tanda es el único dato que permite saber quién ganó.
+// Se guarda aparte (cols K/L) para poder resolver el campeón de una final por
+// penaltis en el cliente.
+function extractPenalties(match, normalizedStatus) {
+  if (normalizedStatus !== 'PEN') return ['', ''];
+  var score = match.score;
+  if (score && score.penalties && score.penalties.home !== null && score.penalties.home !== undefined) {
+    return [score.penalties.home, score.penalties.away];
+  }
+  return ['', ''];
 }
 
 // Diagnostic: run first to verify configuration and API connectivity
@@ -283,6 +313,7 @@ function preloadFixtures() {
       normalizeStage(m.stage),
       m.utcDate || '',
       0, 0,
+      '', '',
     ]);
   }
 
@@ -292,7 +323,7 @@ function preloadFixtures() {
   }
 
   var startRow = sheet.getLastRow() + 1;
-  sheet.getRange(startRow, 1, newRows.length, 10).setValues(newRows);
+  sheet.getRange(startRow, 1, newRows.length, 12).setValues(newRows);
   Logger.log('preloadFixtures: añadidas ' + newRows.length + ' filas (total API: ' + matches.length + ')');
 }
 
@@ -352,6 +383,7 @@ function fetchResults() {
       reds = [0, 0]; // NS / PST / etc.
     }
 
+    var pens = extractPenalties(m, status);
     var row = [
       m.id,
       normalizeTeam(m.homeTeam.name),
@@ -361,6 +393,7 @@ function fetchResults() {
       normalizeStage(m.stage),
       m.utcDate || '',
       reds[0], reds[1],
+      pens[0], pens[1],
     ];
 
     // Never let a transient API response un-finish a match or blank its score.
@@ -391,7 +424,10 @@ function fetchResults() {
 
   try {
     sheet.clearContents();
-    sheet.getRange(1, 1, existingData.length, 10).setValues(existingData);
+    // Las filas viejas de la hoja pueden tener 10 columnas y las nuevas 12;
+    // igualamos el ancho para que setValues reciba una matriz rectangular.
+    padRows_(existingData, 12);
+    sheet.getRange(1, 1, existingData.length, 12).setValues(existingData);
     Logger.log('fetchResults: hoja actualizada (' + existingData.length + ' filas)');
   } catch (e) {
     Logger.log('ERROR escribiendo en la hoja: ' + e.message);

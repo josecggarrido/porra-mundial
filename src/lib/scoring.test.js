@@ -1,7 +1,7 @@
 // Unit tests for scoring.js live (provisional) scoring.
 // Run: node src/lib/scoring.test.js
 import assert from 'node:assert';
-import { calcTeamStats, calcClasificacion } from './scoring.js';
+import { calcTeamStats, calcClasificacion, detectChampion } from './scoring.js';
 
 let passed = 0;
 function test(name, fn) {
@@ -174,6 +174,40 @@ test('campeón: el ganador de la final suma exactamente +10', () => {
   assert.strictEqual(esp.championBonus, 10, 'campeón +10');
   // final: fase(5) + victoria(3)+portería? no (concedió 1) + campeón(10) = 5+3+10 = 18
   assert.strictEqual(esp.pts, 18, 'fase final(5) + victoria(3) + campeón(10)');
+});
+
+// --- Final por penaltis: el marcador del partido es empate, pero el ganador de
+//     la tanda (score.penalties, guardado en la hoja) es el campeón y suma +10 ---
+test('detectChampion: final por penaltis usa el marcador de la tanda', () => {
+  const resultados = [
+    { homeTeam: 'España', awayTeam: 'Portugal', homeGoals: 1, awayGoals: 1,
+      status: 'PEN', round: 'final', date: '', homeRedCards: 0, awayRedCards: 0,
+      homePen: 4, awayPen: 3 },
+  ];
+  assert.strictEqual(detectChampion(resultados), 'España', 'gana la tanda 4-3');
+});
+
+test('detectChampion: final por penaltis sin tanda registrada -> sin campeón', () => {
+  const resultados = [
+    { homeTeam: 'España', awayTeam: 'Portugal', homeGoals: 1, awayGoals: 1,
+      status: 'PEN', round: 'final', date: '', homeRedCards: 0, awayRedCards: 0,
+      homePen: null, awayPen: null },
+  ];
+  assert.strictEqual(detectChampion(resultados), null, 'sin tanda no se puede saber');
+});
+
+test('campeón por penaltis: el ganador de la tanda suma +10', () => {
+  const participantes = [{ nombre: 'Ana', telegram: 'ana', equipos: ['Portugal'] }];
+  const resultados = [
+    { homeTeam: 'España', awayTeam: 'Portugal', homeGoals: 1, awayGoals: 1,
+      status: 'PEN', round: 'final', date: '', homeRedCards: 0, awayRedCards: 0,
+      homePen: 3, awayPen: 5 },
+  ];
+  const [row] = calcClasificacion(participantes, resultados);
+  const por = row.equipoScores[0];
+  assert.strictEqual(por.championBonus, 10, 'Portugal gana la tanda 5-3: campeón +10');
+  // final: fase(5) + empate(1) + campeón(10) = 16 (empate en penaltis no da victoria ni portería)
+  assert.strictEqual(por.pts, 16, 'fase final(5) + empate(1) + campeón(10)');
 });
 
 console.log('\n' + passed + ' passed');

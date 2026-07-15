@@ -76,5 +76,10 @@ export function parseResultados(rows) {
       date: String(row[7] || ''),
       homeRedCards: row[8] !== '' && row[8] !== undefined ? Number(row[8]) : 0,
       awayRedCards: row[9] !== '' && row[9] !== undefined ? Number(row[9]) : 0,
+      // Marcador de la tanda de penaltis (solo en partidos PEN). Sirve para saber
+      // el campeón cuando la final se decide en penaltis (el marcador del partido
+      // queda en empate). Ausente/vacío en el resto de partidos -> null.
+      homePen: row[10] !== '' && row[10] !== undefined ? Number(row[10]) : null,
+      awayPen: row[11] !== '' && row[11] !== undefined ? Number(row[11]) : null,
     }));
 }
